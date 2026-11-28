@@ -1,0 +1,537 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Repo Traffic</title>
+<style>
+:root {
+  color-scheme: light;
+  --page: #f9f9f7; --surface: #fcfcfb; --raised: #ffffff;
+  --ink: #0b0b0b; --ink-2: #52514e; --muted: #898781;
+  --grid: #e1e0d9; --axis: #c3c2b7; --border: rgba(11,11,11,0.10);
+  --wash: rgba(11,11,11,0.05); --accent: #2a78d6; --good: #006300; --bad: #d03b3b;
+  --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --s4: #eda100; --s5: #e87ba4; --s6: #008300; --s7: #6250d6;
+  --other: #b5b3ab; --line: #eb6834;
+}
+@media (prefers-color-scheme: dark) {
+  :root:where(:not([data-theme="light"])) {
+    color-scheme: dark;
+    --page: #0d0d0d; --surface: #1a1a19; --raised: #222221;
+    --ink: #f0efec; --ink-2: #c3c2b7; --muted: #898781;
+    --grid: #2c2c2a; --axis: #383835; --border: rgba(255,255,255,0.10);
+    --wash: rgba(255,255,255,0.06); --accent: #3987e5; --good: #0ca30c; --bad: #e66767;
+    --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --s5: #d55181; --s6: #0ca30c; --s7: #9085e9;
+    --other: #5c5b57; --line: #d95926;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --page: #0d0d0d; --surface: #1a1a19; --raised: #222221;
+  --ink: #f0efec; --ink-2: #c3c2b7; --muted: #898781;
+  --grid: #2c2c2a; --axis: #383835; --border: rgba(255,255,255,0.10);
+  --wash: rgba(255,255,255,0.06); --accent: #3987e5; --good: #0ca30c; --bad: #e66767;
+  --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --s5: #d55181; --s6: #0ca30c; --s7: #9085e9;
+  --other: #5c5b57; --line: #d95926;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--page); color: var(--ink);
+  font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+.wrap { max-width: 1240px; margin: 0 auto; padding: 24px 16px 48px; }
+header { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px 24px; margin-bottom: 16px; }
+h1 { font-size: 22px; margin: 0; letter-spacing: -0.01em; }
+.sub { color: var(--ink-2); font-size: 13px; }
+.filters { position: sticky; top: 0; z-index: 20; display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+  padding: 10px 0; margin-bottom: 16px; background: var(--page); border-bottom: 1px solid var(--border); }
+.ctl { height: 34px; border: 1px solid var(--border); background: var(--raised); color: var(--ink); border-radius: 8px;
+  padding: 0 12px; font: inherit; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+.ctl:hover { background: var(--wash); }
+select.ctl { padding-right: 28px; appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%), linear-gradient(135deg, var(--muted) 50%, transparent 50%);
+  background-position: calc(100% - 15px) 15px, calc(100% - 10px) 15px; background-size: 5px 5px; background-repeat: no-repeat; }
+input[type=date].ctl { padding: 0 8px; cursor: text; }
+.seg { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; background: var(--raised); }
+.seg button { height: 32px; border: 0; background: none; color: var(--ink-2); font: inherit; padding: 0 12px; cursor: pointer; }
+.seg button + button { border-left: 1px solid var(--border); }
+.seg button[aria-pressed=true] { background: var(--wash); color: var(--ink); font-weight: 600; }
+.spacer { flex: 1; }
+.dd { position: relative; }
+.dd-panel { position: absolute; top: 40px; left: 0; width: 300px; max-height: 420px; display: none; flex-direction: column;
+  background: var(--raised); border: 1px solid var(--border); border-radius: 10px; box-shadow: 0 8px 28px rgba(0,0,0,.18); }
+.dd.open .dd-panel { display: flex; }
+.dd-panel input[type=search] { margin: 10px; height: 32px; border: 1px solid var(--border); border-radius: 6px; padding: 0 10px;
+  background: var(--surface); color: var(--ink); font: inherit; }
+.dd-quick { display: flex; gap: 6px; padding: 0 10px 8px; flex-wrap: wrap; }
+.dd-quick button { border: 1px solid var(--border); background: none; color: var(--ink-2); border-radius: 6px; font: inherit; font-size: 12px; padding: 3px 8px; cursor: pointer; }
+.dd-quick button:hover { background: var(--wash); }
+.dd-list { overflow: auto; border-top: 1px solid var(--border); padding: 4px 0; }
+.dd-list label { display: flex; align-items: center; gap: 8px; padding: 6px 12px; cursor: pointer; }
+.dd-list label:hover { background: var(--wash); }
+.key { width: 10px; height: 10px; border-radius: 2px; flex: none; }
+.lock { color: var(--muted); font-size: 12px; }
+.kpis { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 16px; }
+@media (min-width: 640px) { .kpis { grid-template-columns: repeat(3, 1fr); } }
+@media (min-width: 1100px) { .kpis { grid-template-columns: repeat(6, 1fr); } }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px; min-width: 0; }
+.kpi .label { color: var(--ink-2); font-size: 13px; }
+.kpi .value { font-size: 28px; font-weight: 650; letter-spacing: -0.02em; margin-top: 2px; }
+.kpi .note { color: var(--muted); font-size: 12px; margin-top: 2px; }
+.delta-up { color: var(--good); } .delta-down { color: var(--bad); }
+.grid2 { display: grid; grid-template-columns: 1fr; gap: 16px; margin-bottom: 16px; }
+@media (min-width: 1000px) { .grid2 { grid-template-columns: 1fr 1fr; } }
+.card h2 { font-size: 15px; margin: 0 0 2px; }
+.card .hint { color: var(--muted); font-size: 12px; margin-bottom: 8px; }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; color: var(--ink-2); margin: 6px 0 4px; }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.lkey-line { width: 14px; height: 2px; border-radius: 1px; }
+.chart { position: relative; height: 260px; }
+.chart svg { display: block; width: 100%; height: 100%; overflow: visible; }
+.chart text { fill: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+.tip { position: fixed; pointer-events: none; z-index: 50; background: var(--raised); color: var(--ink); border: 1px solid var(--border);
+  border-radius: 8px; padding: 8px 10px; font-size: 12px; box-shadow: 0 6px 20px rgba(0,0,0,.18); display: none; min-width: 150px; }
+.tip .t { color: var(--ink-2); margin-bottom: 4px; }
+.tip .r { display: flex; align-items: center; gap: 8px; justify-content: space-between; }
+.tip .r span:first-child { display: inline-flex; align-items: center; gap: 6px; color: var(--ink-2); }
+.tip b { font-variant-numeric: tabular-nums; }
+table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+th, td { padding: 8px 10px; text-align: right; border-bottom: 1px solid var(--grid); white-space: nowrap; }
+th:first-child, td:first-child, th.l, td.l { text-align: left; }
+th { color: var(--ink-2); font-weight: 600; font-size: 12px; cursor: pointer; user-select: none; }
+th[aria-sort] { color: var(--ink); }
+th[aria-sort=descending]::after { content: " ↓"; } th[aria-sort=ascending]::after { content: " ↑"; }
+tbody tr { cursor: pointer; } tbody tr:hover { background: var(--wash); }
+.scroll { overflow-x: auto; }
+.share { display: inline-flex; align-items: center; gap: 8px; }
+.share i { display: inline-block; height: 6px; border-radius: 3px; background: var(--s1); }
+.reponame { display: inline-flex; align-items: center; gap: 8px; font-weight: 600; }
+.muted { color: var(--muted); }
+.empty { color: var(--muted); padding: 16px 0; }
+details summary { cursor: pointer; color: var(--ink-2); margin-top: 8px; }
+footer { color: var(--muted); font-size: 12px; margin-top: 24px; line-height: 1.6; }
+.chip { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; border-radius: 14px; background: var(--wash); font-size: 12px; }
+.chip button { border: 0; background: none; color: var(--ink-2); cursor: pointer; font-size: 14px; padding: 0; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>📊 Repo traffic</h1>
+      <div class="sub" id="sub"></div>
+    </div>
+    <button class="ctl" id="theme" title="Switch light / dark">◐ Theme</button>
+  </header>
+
+  <div class="filters" role="toolbar" aria-label="Filters">
+    <select class="ctl" id="range" aria-label="Date range">
+      <option value="7">Last 7 days</option>
+      <option value="14">Last 14 days</option>
+      <option value="30">Last 30 days</option>
+      <option value="90">Last 90 days</option>
+      <option value="365">Last 12 months</option>
+      <option value="all">All time</option>
+      <option value="custom">Custom…</option>
+    </select>
+    <span id="custom" hidden>
+      <input type="date" class="ctl" id="from" aria-label="From"> – <input type="date" class="ctl" id="to" aria-label="To">
+    </span>
+    <div class="dd" id="dd">
+      <button class="ctl" id="ddBtn" aria-haspopup="true"></button>
+      <div class="dd-panel" role="dialog" aria-label="Choose repos">
+        <input type="search" id="ddSearch" placeholder="Search repos…">
+        <div class="dd-quick">
+          <button data-q="all">All</button><button data-q="none">None</button>
+          <button data-q="public">Public only</button><button data-q="private">Private only</button>
+          <button data-q="active">Had traffic</button>
+        </div>
+        <div class="dd-list" id="ddList"></div>
+      </div>
+    </div>
+    <div class="seg" id="gran" aria-label="Group by">
+      <button data-v="day">Day</button><button data-v="week">Week</button><button data-v="month">Month</button>
+    </div>
+    <div class="seg" id="mode" aria-label="Chart view">
+      <button data-v="total">Total</button><button data-v="repo">By repo</button>
+    </div>
+    <span id="focus"></span>
+  </div>
+
+  <section class="kpis" id="kpis"></section>
+
+  <section class="grid2">
+    <div class="card"><h2>Views</h2><div class="hint">Visits to the repo pages on github.com</div>
+      <div class="legend" id="lgViews"></div><div class="chart" id="chViews"></div></div>
+    <div class="card"><h2>Clones</h2><div class="hint">git clones, including automated ones (CI, bots)</div>
+      <div class="legend" id="lgClones"></div><div class="chart" id="chClones"></div></div>
+  </section>
+
+  <section class="card" style="margin-bottom:16px">
+    <h2>Repos</h2><div class="hint">For the selected dates. Click a row to show only that repo; click a column to sort.</div>
+    <div class="scroll"><table id="tbl"></table></div>
+    <details><summary>Numbers by period</summary><div class="scroll"><table id="periods"></table></div></details>
+  </section>
+
+  <section class="grid2">
+    <div class="card"><h2>Where visitors come from</h2><div class="hint" id="refHint"></div>
+      <div class="scroll"><table id="refs"></table></div></div>
+    <div class="card"><h2>Most viewed pages</h2><div class="hint" id="pathHint"></div>
+      <div class="scroll"><table id="paths"></table></div></div>
+  </section>
+
+  <footer id="foot"></footer>
+</div>
+<div class="tip" id="tip"></div>
+
+<script>
+const DATA = {"updated":"2026-11-28","first":"2026-11-06","last":"2026-11-27","snapshot":"2026-11-28","repo_url":"https://github.com/husseinelsaadii/repo-traffic-dashboard","repos":[{"n":"husseinelsaadii","priv":false,"url":"https://github.com/husseinelsaadii/husseinelsaadii","slot":0,"v":{"2026-11-08":[0,0],"2026-11-09":[0,0],"2026-11-10":[0,0],"2026-11-11":[0,0],"2026-11-12":[0,0],"2026-11-13":[0,0],"2026-11-14":[0,0],"2026-11-15":[0,0],"2026-11-16":[0,0],"2026-11-17":[0,0],"2026-11-18":[0,0],"2026-11-19":[0,0],"2026-11-20":[0,0],"2026-11-21":[0,0],"2026-11-22":[0,0],"2026-11-23":[0,0],"2026-11-24":[0,0],"2026-11-25":[0,0],"2026-11-26":[0,0],"2026-11-27":[0,0]},"c":{"2026-11-08":[0,0],"2026-11-09":[0,0],"2026-11-10":[2,1],"2026-11-11":[8,6],"2026-11-12":[1,1],"2026-11-13":[9,7],"2026-11-14":[21,12],"2026-11-15":[15,9],"2026-11-16":[17,10],"2026-11-17":[4,3],"2026-11-18":[24,14],"2026-11-19":[0,0],"2026-11-20":[9,6],"2026-11-21":[6,5],"2026-11-22":[30,16],"2026-11-23":[6,5],"2026-11-24":[14,10],"2026-11-25":[9,5],"2026-11-26":[24,13],"2026-11-27":[0,0]},"ref":[],"paths":[],"t14":[0,0,179,92]},{"n":"instagram-followers-scraper","priv":false,"url":"https://github.com/husseinelsaadii/instagram-followers-scraper","slot":1,"v":{"2026-11-08":[0,0],"2026-11-09":[2,2],"2026-11-10":[5,5],"2026-11-11":[5,5],"2026-11-12":[3,3],"2026-11-13":[8,6],"2026-11-14":[2,2],"2026-11-15":[8,4],"2026-11-16":[9,4],"2026-11-17":[3,2],"2026-11-18":[3,3],"2026-11-19":[2,2],"2026-11-20":[1,1],"2026-11-21":[4,3],"2026-11-22":[3,2],"2026-11-23":[2,2],"2026-11-24":[1,1],"2026-11-25":[4,4],"2026-11-26":[1,1],"2026-11-27":[1,1]},"c":{"2026-11-08":[0,0],"2026-11-09":[10,5],"2026-11-10":[1,1],"2026-11-11":[2,2],"2026-11-12":[0,0],"2026-11-13":[4,4],"2026-11-14":[3,3],"2026-11-15":[1,1],"2026-11-16":[0,0],"2026-11-17":[1,1],"2026-11-18":[25,3],"2026-11-19":[0,0],"2026-11-20":[1,1],"2026-11-21":[1,1],"2026-11-22":[0,0],"2026-11-23":[1,1],"2026-11-24":[0,0],"2026-11-25":[0,0],"2026-11-26":[0,0],"2026-11-27":[1,1]},"ref":[["Google",16,16],["github.com",8,8],["DuckDuckGo",1,1]],"paths":[["/husseinelsaadii/instagram-followers-scraper","Overview",33,30],["/husseinelsaadii/instagram-followers-scraper/blob/main/app.py","/blob/main/app.py",2,2],["/husseinelsaadii/instagram-followers-scraper/blob/main/scraper.py","/blob/main/scraper.py",2,2],["/husseinelsaadii/instagram-followers-scraper/issues","/issues",2,2],["/husseinelsaadii/instagram-followers-scraper/pulls","/pulls",2,2],["/husseinelsaadii/instagram-followers-scraper/actions","/actions",1,1],["/husseinelsaadii/instagram-followers-scraper/blob/main/examples/sample_output.json","/blob/main/examples/sample_output.json",1,1],["/husseinelsaadii/instagram-followers-scraper/pulse","/pulse",1,1]],"t14":[44,32,34,12]},{"n":"scrap-loto-libanais-data","priv":false,"url":"https://github.com/husseinelsaadii/scrap-loto-libanais-data","slot":2,"v":{"2026-11-06":[0,0],"2026-11-07":[0,0],"2026-11-08":[6,1],"2026-11-09":[0,0],"2026-11-10":[0,0],"2026-11-11":[0,0],"2026-11-12":[0,0],"2026-11-13":[0,0],"2026-11-14":[0,0],"2026-11-15":[0,0],"2026-11-16":[0,0],"2026-11-17":[3,1],"2026-11-18":[0,0],"2026-11-19":[0,0],"2026-11-20":[0,0],"2026-11-21":[0,0],"2026-11-22":[18,1],"2026-11-23":[0,0],"2026-11-24":[0,0],"2026-11-25":[0,0],"2026-11-26":[0,0],"2026-11-27":[1,1]},"c":{"2026-11-06":[1,1],"2026-11-07":[3,2],"2026-11-08":[0,0],"2026-11-09":[0,0],"2026-11-10":[0,0],"2026-11-11":[1,1],"2026-11-12":[3,3],"2026-11-13":[1,1],"2026-11-14":[0,0],"2026-11-15":[1,1],"2026-11-16":[1,1],"2026-11-17":[0,0],"2026-11-18":[1,1],"2026-11-19":[1,1],"2026-11-20":[2,2],"2026-11-21":[0,0],"2026-11-22":[1,1],"2026-11-23":[1,1],"2026-11-24":[0,0],"2026-11-25":[4,4],"2026-11-26":[5,5],"2026-11-27":[0,0]},"ref":[["github.com",2,1]],"paths":[["/husseinelsaadii/scrap-loto-libanais-data/actions/metrics/performance","/actions/metrics/performance",4,1],["/husseinelsaadii/scrap-loto-libanais-data/graphs/traffic","/graphs/traffic",4,1],["/husseinelsaadii/scrap-loto-libanais-data/pulse","/pulse",4,1],["/husseinelsaadii/scrap-loto-libanais-data/blob/main/loto_results.csv","/blob/main/loto_results.csv",3,3],["/husseinelsaadii/scrap-loto-libanais-data","Overview",3,2],["/husseinelsaadii/scrap-loto-libanais-data/actions/metrics/usage","/actions/metrics/usage",2,1],["/husseinelsaadii/scrap-loto-libanais-data/graphs/code-frequency","/graphs/code-frequency",1,1],["/husseinelsaadii/scrap-loto-libanais-data/tree/main","/tree/main",1,1]],"t14":[22,3,17,17]},{"n":"Codingo","priv":false,"url":"https://github.com/husseinelsaadii/Codingo","slot":3,"v":{"2026-11-07":[0,0],"2026-11-08":[0,0],"2026-11-09":[0,0],"2026-11-10":[0,0],"2026-11-11":[0,0],"2026-11-12":[0,0],"2026-11-13":[0,0],"2026-11-14":[0,0],"2026-11-15":[0,0],"2026-11-16":[0,0],"2026-11-17":[0,0],"2026-11-18":[0,0],"2026-11-19":[0,0],"2026-11-20":[0,0],"2026-11-21":[0,0],"2026-11-22":[4,1],"2026-11-23":[0,0],"2026-11-24":[1,1],"2026-11-25":[0,0],"2026-11-26":[0,0],"2026-11-27":[0,0]},"c":{"2026-11-07":[2,1],"2026-11-08":[0,0],"2026-11-09":[0,0],"2026-11-10":[0,0],"2026-11-11":[0,0],"2026-11-12":[0,0],"2026-11-13":[0,0],"2026-11-14":[0,0],"2026-11-15":[3,2],"2026-11-16":[0,0],"2026-11-17":[1,1],"2026-11-18":[0,0],"2026-11-19":[0,0],"2026-11-20":[5,3],"2026-11-21":[5,5],"2026-11-22":[3,3],"2026-11-23":[7,7],"2026-11-24":[6,6],"2026-11-25":[4,4],"2026-11-26":[8,7],"2026-11-27":[0,0]},"ref":[["github.com",1,1]],"paths":[["/husseinelsaadii/Codingo","Overview",2,2],["/husseinelsaadii/Codingo/graphs/traffic","/graphs/traffic",1,1],["/husseinelsaadii/Codingo/network","/network",1,1],["/husseinelsaadii/Codingo/pulse","/pulse",1,1]],"t14":[5,2,42,32]},{"n":"repo-traffic-dashboard","priv":false,"url":"https://github.com/husseinelsaadii/repo-traffic-dashboard","slot":4,"v":{"2026-11-09":[0,0],"2026-11-10":[0,0],"2026-11-11":[0,0],"2026-11-12":[0,0],"2026-11-13":[0,0],"2026-11-14":[0,0],"2026-11-15":[0,0],"2026-11-16":[0,0],"2026-11-17":[0,0],"2026-11-18":[0,0],"2026-11-19":[0,0],"2026-11-20":[0,0],"2026-11-21":[0,0],"2026-11-22":[0,0],"2026-11-23":[0,0],"2026-11-24":[0,0],"2026-11-25":[0,0],"2026-11-26":[0,0],"2026-11-27":[0,0]},"c":{"2026-11-09":[0,0],"2026-11-10":[0,0],"2026-11-11":[0,0],"2026-11-12":[0,0],"2026-11-13":[0,0],"2026-11-14":[0,0],"2026-11-15":[0,0],"2026-11-16":[0,0],"2026-11-17":[0,0],"2026-11-18":[0,0],"2026-11-19":[0,0],"2026-11-20":[0,0],"2026-11-21":[0,0],"2026-11-22":[16,11],"2026-11-23":[6,5],"2026-11-24":[2,2],"2026-11-25":[17,13],"2026-11-26":[2,2],"2026-11-27":[4,4]},"ref":[],"paths":[],"t14":[0,0,47,32]},{"n":"santa-ice-game","priv":false,"url":"https://github.com/husseinelsaadii/santa-ice-game","slot":5,"v":{"2026-11-08":[0,0],"2026-11-09":[0,0],"2026-11-10":[0,0],"2026-11-11":[0,0],"2026-11-12":[0,0],"2026-11-13":[0,0],"2026-11-14":[0,0],"2026-11-15":[0,0],"2026-11-16":[0,0],"2026-11-17":[0,0],"2026-11-18":[0,0],"2026-11-19":[0,0],"2026-11-20":[0,0],"2026-11-21":[0,0],"2026-11-22":[0,0],"2026-11-23":[0,0],"2026-11-24":[0,0],"2026-11-25":[0,0],"2026-11-26":[0,0],"2026-11-27":[0,0]},"c":{"2026-11-08":[0,0],"2026-11-09":[0,0],"2026-11-10":[0,0],"2026-11-11":[0,0],"2026-11-12":[0,0],"2026-11-13":[0,0],"2026-11-14":[1,1],"2026-11-15":[0,0],"2026-11-16":[1,1],"2026-11-17":[2,2],"2026-11-18":[0,0],"2026-11-19":[2,2],"2026-11-20":[3,3],"2026-11-21":[4,4],"2026-11-22":[2,2],"2026-11-23":[1,1],"2026-11-24":[0,0],"2026-11-25":[0,0],"2026-11-26":[0,0],"2026-11-27":[0,0]},"ref":[],"paths":[],"t14":[0,0,16,16]},{"n":"Memento-Design-Pattern","priv":false,"url":"https://github.com/husseinelsaadii/Memento-Design-Pattern","slot":6,"v":{"2026-11-08":[0,0],"2026-11-09":[0,0],"2026-11-10":[0,0],"2026-11-11":[0,0],"2026-11-12":[0,0],"2026-11-13":[0,0],"2026-11-14":[0,0],"2026-11-15":[0,0],"2026-11-16":[0,0],"2026-11-17":[0,0],"2026-11-18":[0,0],"2026-11-19":[0,0],"2026-11-20":[0,0],"2026-11-21":[0,0],"2026-11-22":[0,0],"2026-11-23":[0,0],"2026-11-24":[0,0],"2026-11-25":[0,0],"2026-11-26":[0,0],"2026-11-27":[0,0]},"c":{"2026-11-08":[0,0],"2026-11-09":[0,0],"2026-11-10":[0,0],"2026-11-11":[0,0],"2026-11-12":[0,0],"2026-11-13":[1,1],"2026-11-14":[2,1],"2026-11-15":[0,0],"2026-11-16":[0,0],"2026-11-17":[0,0],"2026-11-18":[1,1],"2026-11-19":[0,0],"2026-11-20":[3,2],"2026-11-21":[0,0],"2026-11-22":[0,0],"2026-11-23":[0,0],"2026-11-24":[0,0],"2026-11-25":[1,1],"2026-11-26":[0,0],"2026-11-27":[0,0]},"ref":[],"paths":[],"t14":[0,0,7,5]},{"n":"among-us-game","priv":false,"url":"https://github.com/husseinelsaadii/among-us-game","slot":-1,"v":{"2026-11-08":[0,0],"2026-11-09":[0,0],"2026-11-10":[0,0],"2026-11-11":[0,0],"2026-11-12":[0,0],"2026-11-13":[0,0],"2026-11-14":[0,0],"2026-11-15":[0,0],"2026-11-16":[0,0],"2026-11-17":[0,0],"2026-11-18":[0,0],"2026-11-19":[0,0],"2026-11-20":[0,0],"2026-11-21":[0,0],"2026-11-22":[0,0],"2026-11-23":[0,0],"2026-11-24":[0,0],"2026-11-25":[0,0],"2026-11-26":[0,0],"2026-11-27":[0,0]},"c":{"2026-11-08":[0,0],"2026-11-09":[0,0],"2026-11-10":[0,0],"2026-11-11":[1,1],"2026-11-12":[0,0],"2026-11-13":[2,2],"2026-11-14":[1,1],"2026-11-15":[0,0],"2026-11-16":[0,0],"2026-11-17":[0,0],"2026-11-18":[1,1],"2026-11-19":[0,0],"2026-11-20":[1,1],"2026-11-21":[0,0],"2026-11-22":[0,0],"2026-11-23":[0,0],"2026-11-24":[1,1],"2026-11-25":[0,0],"2026-11-26":[0,0],"2026-11-27":[0,0]},"ref":[],"paths":[],"t14":[0,0,4,4]},{"n":"HYH-GYM","priv":false,"url":"https://github.com/husseinelsaadii/HYH-GYM","slot":-1,"v":{"2026-11-08":[0,0],"2026-11-09":[0,0],"2026-11-10":[0,0],"2026-11-11":[0,0],"2026-11-12":[0,0],"2026-11-13":[0,0],"2026-11-14":[0,0],"2026-11-15":[0,0],"2026-11-16":[0,0],"2026-11-17":[0,0],"2026-11-18":[0,0],"2026-11-19":[0,0],"2026-11-20":[0,0],"2026-11-21":[0,0],"2026-11-22":[0,0],"2026-11-23":[0,0],"2026-11-24":[0,0],"2026-11-25":[0,0],"2026-11-26":[0,0],"2026-11-27":[0,0]},"c":{"2026-11-08":[0,0],"2026-11-09":[2,1],"2026-11-10":[0,0],"2026-11-11":[0,0],"2026-11-12":[0,0],"2026-11-13":[0,0],"2026-11-14":[0,0],"2026-11-15":[0,0],"2026-11-16":[0,0],"2026-11-17":[0,0],"2026-11-18":[1,1],"2026-11-19":[0,0],"2026-11-20":[1,1],"2026-11-21":[0,0],"2026-11-22":[0,0],"2026-11-23":[0,0],"2026-11-24":[0,0],"2026-11-25":[0,0],"2026-11-26":[0,0],"2026-11-27":[2,1]},"ref":[],"paths":[],"t14":[0,0,4,3]},{"n":"wrc-decisions-pipeline","priv":false,"url":"https://github.com/husseinelsaadii/wrc-decisions-pipeline","slot":-1,"v":{"2026-11-08":[0,0],"2026-11-09":[0,0],"2026-11-10":[0,0],"2026-11-11":[0,0],"2026-11-12":[0,0],"2026-11-13":[0,0],"2026-11-14":[0,0],"2026-11-15":[0,0],"2026-11-16":[0,0],"2026-11-17":[0,0],"2026-11-18":[0,0],"2026-11-19":[0,0],"2026-11-20":[0,0],"2026-11-21":[0,0],"2026-11-22":[0,0],"2026-11-23":[0,0],"2026-11-24":[0,0],"2026-11-25":[0,0],"2026-11-26":[0,0],"2026-11-27":[0,0]},"c":{"2026-11-08":[0,0],"2026-11-09":[0,0],"2026-11-10":[0,0],"2026-11-11":[1,1],"2026-11-12":[1,1],"2026-11-13":[0,0],"2026-11-14":[0,0],"2026-11-15":[0,0],"2026-11-16":[0,0],"2026-11-17":[0,0],"2026-11-18":[0,0],"2026-11-19":[0,0],"2026-11-20":[1,1],"2026-11-21":[0,0],"2026-11-22":[1,1],"2026-11-23":[0,0],"2026-11-24":[0,0],"2026-11-25":[0,0],"2026-11-26":[0,0],"2026-11-27":[0,0]},"ref":[],"paths":[],"t14":[0,0,2,2]},{"n":"finger-count-prediction","priv":false,"url":"https://github.com/husseinelsaadii/finger-count-prediction","slot":-1,"v":{"2026-11-08":[0,0],"2026-11-09":[0,0],"2026-11-10":[0,0],"2026-11-11":[0,0],"2026-11-12":[0,0],"2026-11-13":[0,0],"2026-11-14":[0,0],"2026-11-15":[0,0],"2026-11-16":[0,0],"2026-11-17":[0,0],"2026-11-18":[0,0],"2026-11-19":[0,0],"2026-11-20":[0,0],"2026-11-21":[0,0],"2026-11-22":[0,0],"2026-11-23":[0,0],"2026-11-24":[0,0],"2026-11-25":[0,0],"2026-11-26":[0,0],"2026-11-27":[0,0]},"c":{"2026-11-08":[0,0],"2026-11-09":[0,0],"2026-11-10":[0,0],"2026-11-11":[0,0],"2026-11-12":[0,0],"2026-11-13":[0,0],"2026-11-14":[0,0],"2026-11-15":[0,0],"2026-11-16":[0,0],"2026-11-17":[1,1],"2026-11-18":[0,0],"2026-11-19":[0,0],"2026-11-20":[1,1],"2026-11-21":[0,0],"2026-11-22":[0,0],"2026-11-23":[0,0],"2026-11-24":[0,0],"2026-11-25":[0,0],"2026-11-26":[0,0],"2026-11-27":[0,0]},"ref":[],"paths":[],"t14":[0,0,2,2]}]};
+
+// ---------------------------------------------------------------- helpers
+const $ = (s) => document.querySelector(s);
+const SVGNS = "http://www.w3.org/2000/svg";
+function h(tag, attrs = {}, ...kids) {
+  const svg = ["svg","g","rect","path","line","text","polyline","circle"].includes(tag);
+  const el = svg ? document.createElementNS(SVGNS, tag) : document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (v == null || v === false) continue;
+    if (k === "text") el.textContent = v;
+    else if (k === "style" && typeof v === "object") Object.assign(el.style, v);
+    else if (k.startsWith("on")) el.addEventListener(k.slice(2), v);
+    else el.setAttribute(k, v);
+  }
+  for (const c of kids.flat()) if (c != null) el.append(c.nodeType ? c : document.createTextNode(c));
+  return el;
+}
+const fmt = (n) => n == null ? "—" : n.toLocaleString("en-US");
+const MON = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const toD = (s) => new Date(s + "T00:00:00Z");
+const toS = (d) => d.toISOString().slice(0, 10);
+const addDays = (s, n) => { const d = toD(s); d.setUTCDate(d.getUTCDate() + n); return toS(d); };
+const daysBetween = (a, b) => Math.round((toD(b) - toD(a)) / 864e5);
+const nice = (s, year) => { const d = toD(s); return `${MON[d.getUTCMonth()]} ${d.getUTCDate()}${year ? ", " + d.getUTCFullYear() : ""}`; };
+function bucketOf(s, gran) {
+  if (gran === "day") return s;
+  const d = toD(s);
+  if (gran === "week") { d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7)); return toS(d); }
+  return s.slice(0, 7) + "-01";
+}
+function bucketLabel(k, gran, long) {
+  if (gran === "day") return nice(k, long);
+  if (gran === "week") return (long ? "Week of " : "") + nice(k, long);
+  const d = toD(k); return `${MON[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
+}
+function niceMax(v) {
+  if (v <= 4) return 4;
+  const raw = v / 4, mag = Math.pow(10, Math.floor(Math.log10(raw)));
+  const step = [1, 2, 2.5, 5, 10].map((m) => m * mag).find((s) => s >= raw);
+  return step * 4;
+}
+const color = (r) => r.slot >= 0 ? `var(--s${r.slot + 1})` : "var(--other)";
+
+// ---------------------------------------------------------------- state
+const ALL = DATA.repos.map((r) => r.n);
+const BY = Object.fromEntries(DATA.repos.map((r) => [r.n, r]));
+const state = { range: "30", from: null, to: null, repos: new Set(ALL), gran: "day", mode: "total", sort: ["v", -1] };
+try {
+  const s = JSON.parse(decodeURIComponent(location.hash.slice(1)) || "{}");
+  if (s.range) state.range = s.range;
+  if (s.from) state.from = s.from; if (s.to) state.to = s.to;
+  if (Array.isArray(s.repos)) state.repos = new Set(s.repos.filter((n) => BY[n]));
+  if (s.gran) state.gran = s.gran; if (s.mode) state.mode = s.mode;
+} catch (e) {}
+function saveHash() {
+  const s = { range: state.range, gran: state.gran, mode: state.mode };
+  if (state.range === "custom") { s.from = state.from; s.to = state.to; }
+  if (state.repos.size !== ALL.length) s.repos = [...state.repos];
+  history.replaceState(null, "", "#" + encodeURIComponent(JSON.stringify(s)));
+}
+function period() {
+  const last = DATA.last, first = DATA.first;
+  if (state.range === "all") return [first, last];
+  if (state.range === "custom") {
+    const f = state.from || first, t = state.to || last;
+    return f <= t ? [f, t] : [t, f];
+  }
+  const from = addDays(last, -(+state.range - 1));
+  return [from < first ? first : from, last];   // nothing exists before collection started
+}
+const selected = () => DATA.repos.filter((r) => state.repos.has(r.n));
+
+// ---------------------------------------------------------------- aggregation
+function sumRange(series, from, to) {
+  let c = 0, u = 0;
+  for (const [d, [a, b]] of Object.entries(series)) if (d >= from && d <= to) { c += a; u += b; }
+  return [c, u];
+}
+function trueUniques(from, to) {
+  // GitHub's own 14-day uniques are only valid for exactly its 14-day window
+  return state.range === "14" && to === DATA.last;
+}
+function repoStats(r, from, to) {
+  const [v, vu] = sumRange(r.v, from, to), [c, cu] = sumRange(r.c, from, to);
+  const exact = trueUniques(from, to) && r.t14;
+  return { v, c, vu: exact ? r.t14[1] : vu, cu: exact ? r.t14[3] : cu };
+}
+function buckets(from, to, gran) {
+  const keys = [];
+  for (let d = from; d <= to; d = addDays(d, 1)) { const k = bucketOf(d, gran); if (keys[keys.length - 1] !== k) keys.push(k); }
+  return keys;
+}
+function seriesFor(repos, key, from, to, gran) {
+  const keys = buckets(from, to, gran), idx = Object.fromEntries(keys.map((k, i) => [k, i]));
+  const per = new Map(), uniq = new Array(keys.length).fill(0);
+  for (const r of repos) {
+    const arr = new Array(keys.length).fill(0);
+    for (const [d, [a, b]] of Object.entries(r[key])) {
+      if (d < from || d > to) continue;
+      const i = idx[bucketOf(d, gran)]; arr[i] += a; uniq[i] += b;
+    }
+    per.set(r.n, arr);
+  }
+  return { keys, per, uniq };
+}
+
+// ---------------------------------------------------------------- chart
+const tip = $("#tip");
+function showTip(e, title, rows) {
+  tip.replaceChildren(h("div", { class: "t", text: title }),
+    ...rows.map(([name, val, col, isLine]) => h("div", { class: "r" },
+      h("span", {}, h("i", { class: isLine ? "lkey-line" : "key", style: { background: col, display: "inline-block" } }), name),
+      h("b", { text: fmt(val) }))));
+  tip.style.display = "block";
+  const pad = 14, w = tip.offsetWidth, ht = tip.offsetHeight;
+  let x = e.clientX + pad, y = e.clientY + pad;
+  if (x + w > innerWidth - 8) x = e.clientX - w - pad;
+  if (y + ht > innerHeight - 8) y = e.clientY - ht - pad;
+  tip.style.left = x + "px"; tip.style.top = y + "px";
+}
+const hideTip = () => (tip.style.display = "none");
+
+function drawChart(el, legendEl, key, labels) {
+  const [from, to] = period(), gran = state.gran, repos = selected();
+  const { keys, per, uniq } = seriesFor(repos, key, from, to, gran);
+  // stack groups: in "repo" mode each colored repo is its own band, the rest fold into Other
+  let groups;
+  if (state.mode === "repo") {
+    const named = repos.filter((r) => r.slot >= 0).sort((a, b) => a.slot - b.slot);
+    const other = repos.filter((r) => r.slot < 0);
+    groups = named.map((r) => ({ name: r.n, col: color(r), vals: per.get(r.n) }));
+    if (other.length) groups.push({ name: `Other (${other.length})`, col: "var(--other)",
+      vals: keys.map((_, i) => other.reduce((s, r) => s + per.get(r.n)[i], 0)) });
+  } else {
+    groups = [{ name: labels[0], col: "var(--s1)", vals: keys.map((_, i) => repos.reduce((s, r) => s + per.get(r.n)[i], 0)) }];
+  }
+  const totals = keys.map((_, i) => groups.reduce((s, g) => s + g.vals[i], 0));
+  const showLine = state.mode === "total";
+
+  const shown = state.mode === "repo" ? groups.filter((g) => g.vals.some((v) => v > 0)) : groups;
+  legendEl.replaceChildren(...shown.map((g) => h("span", {}, h("i", { class: "key", style: { background: g.col } }), g.name)),
+    ...(showLine ? [h("span", {}, h("i", { class: "lkey-line", style: { background: "var(--line)" } }), labels[1])] : []));
+
+  const W = Math.max(el.clientWidth, 280), H = el.clientHeight, L = 40, R = 8, T = 8, B = 26;
+  const pw = W - L - R, ph = H - T - B, n = keys.length;
+  const peak = Math.max(0, ...totals, ...(showLine ? uniq : []));
+  const ymax = niceMax(peak), y = (v) => T + ph - (v / ymax) * ph;
+  const slot = pw / Math.max(n, 1), bw = Math.max(Math.min(slot - 2, 36), 1);
+  const svg = h("svg", { viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": `${labels[0]} chart` });
+  for (let i = 0; i <= 4; i++) {
+    const v = (ymax / 4) * i, yy = y(v);
+    svg.append(h("line", { x1: L, x2: W - R, y1: yy, y2: yy, stroke: i ? "var(--grid)" : "var(--axis)" }),
+      h("text", { x: L - 6, y: yy + 4, "text-anchor": "end", text: fmt(v) }));
+  }
+  const wash = h("rect", { y: T, height: ph, width: slot, fill: "var(--wash)", visibility: "hidden" });
+  svg.append(wash);
+  // bars: stacked segments, 2px surface gap between them, 4px rounded top on the top segment
+  keys.forEach((k, i) => {
+    const x = L + slot * i + (slot - bw) / 2;
+    let base = 0;
+    const segs = groups.map((g) => ({ g, v: g.vals[i] })).filter((s) => s.v > 0);
+    segs.forEach((s, j) => {
+      const y0 = y(base), y1 = y(base + s.v), top = j === segs.length - 1;
+      const gap = j > 0 ? 2 : 0, hgt = Math.max(y0 - y1 - gap, 0.5), r = top ? Math.min(4, bw / 2, hgt) : 0;
+      const yt = y1, yb = y1 + hgt;
+      svg.append(h("path", { fill: s.g.col, d: r
+        ? `M${x},${yb}V${yt + r}Q${x},${yt} ${x + r},${yt}H${x + bw - r}Q${x + bw},${yt} ${x + bw},${yt + r}V${yb}Z`
+        : `M${x},${yb}V${yt}H${x + bw}V${yb}Z` }));
+      base += s.v;
+    });
+  });
+  if (showLine && n > 1) {
+    svg.append(h("polyline", { fill: "none", stroke: "var(--line)", "stroke-width": 2, "stroke-linejoin": "round",
+      points: uniq.map((u, i) => `${L + slot * i + slot / 2},${y(u)}`).join(" ") }));
+    if (n <= 45) uniq.forEach((u, i) => svg.append(h("circle", { cx: L + slot * i + slot / 2, cy: y(u), r: 4,
+      fill: "var(--line)", stroke: "var(--surface)", "stroke-width": 2 })));
+  }
+  // x labels
+  const maxLabels = Math.max(2, Math.floor(pw / 70)), step = Math.ceil(n / maxLabels);
+  for (let i = 0; i < n; i += step) svg.append(h("text", { x: L + slot * i + slot / 2, y: H - 8, "text-anchor": "middle", text: bucketLabel(keys[i], gran) }));
+  if (peak === 0) svg.append(h("text", { x: L + pw / 2, y: T + ph / 2, "text-anchor": "middle", style: "font-size:13px", text: "No activity for this selection" }));
+  // hover layer: whole column is the hit target
+  keys.forEach((k, i) => svg.append(h("rect", { x: L + slot * i, y: T, width: slot, height: ph, fill: "transparent",
+    onpointermove: (e) => {
+      wash.setAttribute("x", L + slot * i); wash.setAttribute("visibility", "visible");
+      const rows = groups.filter((g) => state.mode === "total" || g.vals[i] > 0).map((g) => [g.name, g.vals[i], g.col]);
+      if (state.mode === "repo" && rows.length > 1) rows.push(["Total", totals[i], "transparent"]);
+      if (showLine) rows.push([labels[1], uniq[i], "var(--line)", true]);
+      showTip(e, bucketLabel(k, gran, true), rows);
+    },
+    onpointerleave: () => { wash.setAttribute("visibility", "hidden"); hideTip(); } })));
+  el.replaceChildren(svg);
+}
+
+// ---------------------------------------------------------------- kpis
+function kpis() {
+  const [from, to] = period(), repos = selected(), len = daysBetween(from, to) + 1;
+  const pFrom = addDays(from, -len), pTo = addDays(from, -1), havePrev = pFrom >= DATA.first;
+  const tot = (f, t) => repos.reduce((a, r) => { const s = repoStats(r, f, t); return [a[0] + s.v, a[1] + s.vu, a[2] + s.c, a[3] + s.cu]; }, [0, 0, 0, 0]);
+  const [v, vu, c, cu] = tot(from, to), prev = havePrev ? tot(pFrom, pTo) : null;
+  const daily = {};
+  for (const r of repos) for (const [d, [a]] of Object.entries(r.v)) if (d >= from && d <= to) daily[d] = (daily[d] || 0) + a;
+  const best = Object.entries(daily).sort((a, b) => b[1] - a[1])[0];
+  const active = repos.filter((r) => { const s = repoStats(r, from, to); return s.v + s.c > 0; }).length;
+  const exact = trueUniques(from, to);
+  const delta = (now, before) => {
+    if (before == null) return h("div", { class: "note", text: "No earlier data to compare yet" });
+    if (before === 0) return h("div", { class: "note", text: now ? "Up from 0 the period before" : "Same as the period before" });
+    const p = Math.round(((now - before) / before) * 100);
+    return h("div", { class: "note" }, h("span", { class: p > 0 ? "delta-up" : p < 0 ? "delta-down" : "", text: `${p > 0 ? "▲ +" : p < 0 ? "▼ " : ""}${p}%` }), ` vs previous ${len} days`);
+  };
+  const card = (label, value, note) => h("div", { class: "card kpi" }, h("div", { class: "label", text: label }), h("div", { class: "value", text: value }), note);
+  const uNote = h("div", { class: "note", text: exact ? "GitHub's exact 14-day count" : "Sum of daily uniques" });
+  $("#kpis").replaceChildren(
+    card("👀 Views", fmt(v), delta(v, prev && prev[0])),
+    card("🧑 Unique visitors", fmt(vu), uNote),
+    card("📦 Clones", fmt(c), delta(c, prev && prev[2])),
+    card("🧑‍💻 Unique cloners", fmt(cu), uNote.cloneNode(true)),
+    card("🔥 Busiest day", best && best[1] ? fmt(best[1]) + " views" : "—", h("div", { class: "note", text: best && best[1] ? nice(best[0], true) : "No views in this period" })),
+    card("📁 Repos with traffic", `${active} of ${repos.length}`, h("div", { class: "note", text: "Had views or clones in this period" })));
+}
+
+// ---------------------------------------------------------------- tables
+function sparkline(r, from, to) {
+  const days = daysBetween(from, to) + 1, n = Math.min(days, 90), start = addDays(to, -(n - 1));
+  const vals = []; for (let i = 0; i < n; i++) { const d = addDays(start, i); vals.push((r.v[d] || [0])[0]); }
+  const W = 100, H = 22, peak = Math.max(...vals);
+  const pts = vals.map((v, i) => `${(i / Math.max(n - 1, 1)) * W},${peak ? H - 2 - (v / peak) * (H - 4) : H - 2}`).join(" ");
+  return h("svg", { width: W, height: H, viewBox: `0 0 ${W} ${H}`, style: "vertical-align:middle" },
+    h("polyline", { points: pts, fill: "none", stroke: peak ? "var(--s1)" : "var(--axis)", "stroke-width": 1.5, "stroke-linejoin": "round" }));
+}
+function repoTable() {
+  const [from, to] = period(), repos = selected();
+  const rows = repos.map((r) => ({ r, ...repoStats(r, from, to), top: r.ref.length ? r.ref[0][0] : "" }));
+  const totalV = rows.reduce((s, x) => s + x.v, 0);
+  const [k, dir] = state.sort;
+  const cmp = (a, b) => k === "n" ? b.r.n.localeCompare(a.r.n, undefined, { sensitivity: "base" }) : a[k] - b[k];
+  rows.sort((a, b) => cmp(a, b) * dir || b.v - a.v || b.c - a.c || a.r.n.localeCompare(b.r.n));
+  const exact = trueUniques(from, to) ? "" : "*";
+  const cols = [["n", "Repo"], ["v", "Views"], ["vu", "Unique visitors" + exact], ["c", "Clones"], ["cu", "Unique cloners" + exact], ["share", "Share of views"], ["trend", "Views trend"], ["top", "Top source"]];
+  const head = h("tr", {}, cols.map(([key, label]) => h("th", {
+    class: ["n", "top", "trend", "share"].includes(key) ? "l" : null,
+    "aria-sort": state.sort[0] === key ? (state.sort[1] < 0 ? "descending" : "ascending") : null,
+    onclick: ["trend", "share", "top"].includes(key) ? null : () => { state.sort = [key, state.sort[0] === key ? -state.sort[1] : -1]; repoTable(); },
+    text: label })));
+  const body = rows.map((x) => h("tr", { onclick: (e) => { if (e.target.closest("a")) return; state.repos = new Set([x.r.n]); render(); }, title: "Show only this repo" },
+    h("td", {}, h("span", { class: "reponame" }, h("i", { class: "key", style: { background: color(x.r) } }),
+      h("a", { href: x.r.url, target: "_blank", rel: "noopener", text: x.r.n }), x.r.priv ? h("span", { class: "lock", title: "Private repo", text: "🔒" }) : null)),
+    h("td", { text: fmt(x.v) }), h("td", { text: fmt(x.vu) }), h("td", { text: fmt(x.c) }), h("td", { text: fmt(x.cu) }),
+    h("td", { class: "l" }, h("span", { class: "share" }, h("i", { style: { width: (totalV ? (x.v / totalV) * 80 : 0) + "px" } }),
+      h("span", { class: "muted", text: totalV ? Math.round((x.v / totalV) * 100) + "%" : "—" }))),
+    h("td", { class: "l" }, sparkline(x.r, from, to)),
+    h("td", { class: "l", text: x.top || "—" })));
+  $("#tbl").replaceChildren(h("thead", {}, head), h("tbody", {}, body.length ? body : h("tr", {}, h("td", { colspan: 8, class: "empty", text: "No repos selected." }))));
+
+  // numbers by period
+  const v = seriesFor(repos, "v", from, to, state.gran), c = seriesFor(repos, "c", from, to, state.gran);
+  const sumAt = (s, i) => [...s.per.values()].reduce((a, arr) => a + arr[i], 0);
+  $("#periods").replaceChildren(
+    h("thead", {}, h("tr", {}, ["Period", "Views", "Unique visitors*", "Clones", "Unique cloners*"].map((t, i) => h("th", { class: i ? null : "l", text: t })))),
+    h("tbody", {}, v.keys.map((k, i) => i).reverse().map((i) => h("tr", {},
+      h("td", { text: bucketLabel(v.keys[i], state.gran, true) }), h("td", { text: fmt(sumAt(v, i)) }), h("td", { text: fmt(v.uniq[i]) }),
+      h("td", { text: fmt(sumAt(c, i)) }), h("td", { text: fmt(c.uniq[i]) })))));
+}
+function snapshotTables() {
+  const repos = selected(), refs = new Map(), paths = [];
+  for (const r of repos) {
+    for (const [name, c, u] of r.ref) { const e = refs.get(name) || { c: 0, u: 0, repos: [] }; e.c += c; e.u += u; e.repos.push(r.n); refs.set(name, e); }
+    for (const [p, title, c, u] of r.paths) paths.push({ r, p, title, c, u });
+  }
+  const snap = DATA.snapshot ? nice(DATA.snapshot, true) : "";
+  $("#refHint").textContent = `Last 14 days up to ${snap}. GitHub doesn't keep sources for longer, so this ignores the date filter.`;
+  $("#pathHint").textContent = `Last 14 days up to ${snap}. Same 14-day limit as sources.`;
+  const rr = [...refs.entries()].sort((a, b) => b[1].c - a[1].c);
+  $("#refs").replaceChildren(h("thead", {}, h("tr", {}, h("th", { class: "l", text: "Source" }), h("th", { text: "Views" }), h("th", { text: "Unique" }), h("th", { class: "l", text: "Repos" }))),
+    h("tbody", {}, rr.length ? rr.map(([name, e]) => h("tr", { style: { cursor: "default" } }, h("td", { text: name }), h("td", { text: fmt(e.c) }), h("td", { text: fmt(e.u) }),
+      h("td", { class: "l muted", style: { whiteSpace: "normal" }, text: e.repos.join(", ") })))
+      : h("tr", {}, h("td", { colspan: 4, class: "empty", text: "No outside sources for the selected repos." }))));
+  paths.sort((a, b) => b.c - a.c);
+  const label = (x) => { const parts = x.p.split("/").filter(Boolean); return parts.length <= 2 ? "Repo home" : parts.slice(2).join("/"); };
+  $("#paths").replaceChildren(h("thead", {}, h("tr", {}, h("th", { class: "l", text: "Page" }), h("th", { class: "l", text: "Repo" }), h("th", { text: "Views" }), h("th", { text: "Unique" }))),
+    h("tbody", {}, paths.length ? paths.slice(0, 25).map((x) => h("tr", { style: { cursor: "default" } },
+      h("td", { class: "l", style: { whiteSpace: "normal", wordBreak: "break-all" } }, h("a", { href: "https://github.com" + x.p, target: "_blank", rel: "noopener", text: label(x) })),
+      h("td", { class: "l muted", text: x.r.n }), h("td", { text: fmt(x.c) }), h("td", { text: fmt(x.u) })))
+      : h("tr", {}, h("td", { colspan: 4, class: "empty", text: "No page views for the selected repos." }))));
+}
+
+// ---------------------------------------------------------------- filters UI
+function ddRender() {
+  const q = $("#ddSearch").value.trim().toLowerCase();
+  $("#ddList").replaceChildren(...DATA.repos.filter((r) => r.n.toLowerCase().includes(q)).map((r) => h("label", {},
+    h("input", { type: "checkbox", checked: state.repos.has(r.n) ? "" : null, onchange: (e) => { e.target.checked ? state.repos.add(r.n) : state.repos.delete(r.n); render(); } }),
+    h("i", { class: "key", style: { background: color(r) } }), h("span", { text: r.n }), r.priv ? h("span", { class: "lock", text: "🔒" }) : null)));
+}
+function filtersRender() {
+  const n = state.repos.size;
+  $("#ddBtn").textContent = `Repos: ${n === ALL.length ? "All" : n === 0 ? "None" : n === 1 ? [...state.repos][0] : n + " selected"} ▾`;
+  $("#range").value = state.range;
+  $("#custom").hidden = state.range !== "custom";
+  const [f, t] = period(); $("#from").value = f; $("#to").value = t;
+  $("#from").min = $("#to").min = DATA.first; $("#from").max = $("#to").max = DATA.last;
+  for (const [id, key] of [["#gran", "gran"], ["#mode", "mode"]])
+    for (const b of document.querySelectorAll(id + " button")) b.setAttribute("aria-pressed", b.dataset.v === state[key]);
+  $("#focus").replaceChildren(...(n > 0 && n < ALL.length ? [h("span", { class: "chip" }, `Showing ${n === 1 ? [...state.repos][0] : n + " repos"}`,
+    h("button", { title: "Show all repos", "aria-label": "Show all repos", onclick: () => { state.repos = new Set(ALL); render(); }, text: "×" }))] : []));
+  if ($("#dd").classList.contains("open")) ddRender();
+}
+$("#range").onchange = (e) => { state.range = e.target.value; if (state.range === "custom") { const [f, t] = [DATA.first, DATA.last]; state.from = state.from || f; state.to = state.to || t; } autoGran(); render(); };
+$("#from").onchange = (e) => { state.from = e.target.value; render(); };
+$("#to").onchange = (e) => { state.to = e.target.value; render(); };
+for (const id of ["#gran", "#mode"]) $(id).onclick = (e) => { const b = e.target.closest("button"); if (!b) return; state[id === "#gran" ? "gran" : "mode"] = b.dataset.v; render(); };
+$("#ddBtn").onclick = (e) => { e.stopPropagation(); $("#dd").classList.toggle("open"); ddRender(); if ($("#dd").classList.contains("open")) $("#ddSearch").focus(); };
+$("#ddSearch").oninput = ddRender;
+document.addEventListener("click", (e) => { if (!e.target.closest("#dd")) $("#dd").classList.remove("open"); });
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") $("#dd").classList.remove("open"); });
+document.querySelector(".dd-quick").onclick = (e) => {
+  const q = e.target.dataset.q; if (!q) return;
+  const pick = { all: () => true, none: () => false, public: (r) => !r.priv, private: (r) => r.priv,
+    active: (r) => { const [f, t] = period(); const s = repoStats(r, f, t); return s.v + s.c > 0; } }[q];
+  state.repos = new Set(DATA.repos.filter(pick).map((r) => r.n)); render();
+};
+function autoGran() { const [f, t] = period(), d = daysBetween(f, t); state.gran = d > 400 ? "month" : d > 120 ? "week" : "day"; }
+$("#theme").onclick = () => {
+  const cur = document.documentElement.dataset.theme || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+  document.documentElement.dataset.theme = cur === "dark" ? "light" : "dark";
+  try { localStorage.setItem("traffic-theme", document.documentElement.dataset.theme); } catch (e) {}
+  render();
+};
+try { const t = localStorage.getItem("traffic-theme"); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
+
+// ---------------------------------------------------------------- render
+function render() {
+  saveHash(); filtersRender(); kpis();
+  drawChart($("#chViews"), $("#lgViews"), "v", ["Views", "Unique visitors"]);
+  drawChart($("#chClones"), $("#lgClones"), "c", ["Clones", "Unique cloners"]);
+  repoTable(); snapshotTables();
+}
+if (!DATA.repos.some((r) => r.priv))   // public-only build: the public/private shortcuts mean nothing
+  for (const b of document.querySelectorAll('.dd-quick [data-q="public"], .dd-quick [data-q="private"]')) b.remove();
+$("#sub").textContent =`${DATA.repos.length} repos · data since ${nice(DATA.first, true)} · updated ${nice(DATA.updated, true)} · refreshes daily`;
+$("#foot").replaceChildren(
+  "* Unique counts: GitHub only reports unique people per day and per 14-day window. Outside the exact “Last 14 days” view, the unique numbers add up daily uniques, so someone who came back on several days is counted each time. ",
+  "Clones include automated ones (CI, bots, mirrors). Days before collection started, or days the daily job missed by more than 14 days, count as 0. ",
+  h("br"), "Built from the CSVs in ", h("a", { href: DATA.repo_url, target: "_blank", rel: "noopener", text: DATA.repo_url.replace("https://", "") }), ".");
+let rt; addEventListener("resize", () => { clearTimeout(rt); rt = setTimeout(render, 120); });
+render();
+</script>
+</body>
+</html>
